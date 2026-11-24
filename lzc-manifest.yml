@@ -4,9 +4,57 @@ usage: |
 application:
   subdomain: trilium
   background_task: true
+  public_path:
+    - /_lzc/health
   routes:
     - /=http://trilium:8080
   injects:
+    - id: lazycat-health
+      "on": request
+      when:
+        - /_lzc/health
+      do:
+        - src: |
+            ctx.response.send(200, "ok");
+    - id: lazycat-file-bridge
+      "on": request
+      when:
+        - /__lazycat_file_bridge/*
+      do:
+        - src: |
+            const bridgePrefix = "/__lazycat_file_bridge";
+            const requestHost = String(ctx.request.host || "")
+              .split(":")[0]
+              .toLowerCase();
+            const firstDot = requestHost.indexOf(".");
+            const method = String(ctx.request.method || "").toUpperCase();
+
+            if (
+              firstDot <= 0 ||
+              !requestHost.endsWith(".heiyu.space") ||
+              !["GET", "HEAD", "PUT"].includes(method)
+            ) {
+              ctx.response.send(
+                ["GET", "HEAD", "PUT"].includes(method) ? 400 : 405,
+                "Invalid LazyCat file bridge request",
+              );
+              return;
+            }
+
+            const boxDomain = requestHost.slice(firstDot + 1);
+            const fileOrigin = "https://file." + boxDomain;
+            const targetPath =
+              "/files/home" + ctx.request.path.slice(bridgePrefix.length);
+
+            ctx.headers.del("Origin");
+            ctx.headers.del("Referer");
+            ctx.proxy.to(fileOrigin, {
+              path: targetPath,
+              query: ctx.request.raw_query,
+              use_target_host: true,
+              timeout_ms: 120000,
+              on_fail: "error",
+            });
     - id: open-save-chooser
       "on": browser
       when:

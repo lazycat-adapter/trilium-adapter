@@ -47,7 +47,12 @@ def test_image_and_manifest_preserve_data_and_service_contract():
 
 def test_file_picker_injection_is_packaged():
     manifest = load("lzc-manifest.yml")
+    assert manifest["application"]["public_path"] == ["/_lzc/health"]
     injects = manifest["application"]["injects"]
+    bridge = next(item for item in injects if item["id"] == "lazycat-file-bridge")
+    assert bridge["on"] == "request"
+    assert bridge["when"] == ["/__lazycat_file_bridge/*"]
+    assert "ctx.proxy.to" in bridge["do"][0]["src"]
     browser_inject = next(item for item in injects if item["id"] == "open-save-chooser")
     assert browser_inject["on"] == "browser"
     assert browser_inject["do"][0]["src"].startswith("file:///lzcapp/pkg/content/")
