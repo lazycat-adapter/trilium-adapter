@@ -1,0 +1,48 @@
+name: Update Trilium for LazyCat
+run-name: ${{ (github.event_name == 'push' || (github.event_name == 'schedule' && vars.LAZYCAT_AUTO_PUBLISH != 'true') || (github.event_name == 'workflow_dispatch' && inputs.dry-run)) && 'Trilium [check only]' || 'Trilium [build and submit]' }}
+on:
+  push:
+    paths:
+      - .github/workflows/update.yml
+      - lazycat-action.yml
+      - lzc-build.yml
+      - lzc-manifest.yml
+      - lzc-deploy-params.yml
+      - package.yml
+      - icon.png
+      - content/**
+      - scripts/**
+      - tests/**
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Check only; uncheck to copy the image, build the LPK and submit review.
+        type: boolean
+        default: true
+      retry-rejected:
+        description: Explicitly retry a repaired rejected source with a new app patch.
+        type: boolean
+        default: false
+      force-rebuild:
+        description: Rebuild the selected source after adapter packaging changes.
+        type: boolean
+        default: false
+permissions:
+  contents: write
+  pull-requests: write
+concurrency:
+  group: lazycat-adapter-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  update:
+    uses: lazycat-adapter/lazycat-action/.github/workflows/lazycat.yml@v1
+    with:
+      config: lazycat-action.yml
+      operation: auto
+      runner: ubuntu-24.04
+      dry-run: ${{ github.event_name == 'push' || (github.event_name == 'schedule' && vars.LAZYCAT_AUTO_PUBLISH != 'true') || (github.event_name == 'workflow_dispatch' && inputs.dry-run) }}
+      retry-rejected: ${{ github.event_name == 'workflow_dispatch' && inputs.retry-rejected || false }}
+      force-rebuild: ${{ github.event_name == 'workflow_dispatch' && inputs.force-rebuild || false }}
+    secrets: inherit

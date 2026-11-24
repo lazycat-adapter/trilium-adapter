@@ -1,0 +1,36 @@
+usage: |
+  首次打开请按 Trilium 向导创建管理员账户。
+  笔记、附件、数据库、配置和索引持久保存在 /lzcapp/var/trilium。
+application:
+  subdomain: trilium
+  background_task: true
+  routes:
+    - /=http://trilium:8080
+  injects:
+    - id: open-save-chooser
+      "on": browser
+      when:
+        - /*
+      do:
+        - src: file:///lzcapp/pkg/content/lazycat-injects/lzc-file-chooser-inject.js
+          params:
+            diskRoot: /_lzc/files/home
+            fileBridgeRoot: /__lazycat_file_bridge
+            fallbackMime: application/octet-stream
+            locale: auto
+            hooks:
+              fileSystemAccess: true
+              fileInput: true
+              downloadAnchor: true
+  health_check:
+    test_url: http://trilium:8080/
+    start_period: 180s
+services:
+  trilium:
+    # Official stable image baseline. The adapter replaces this reference with the delivered LazyCat image.
+    # upstream: docker.io/triliumnext/trilium:v0.107.0@sha256:ac72ce66f562a1d6d1baedf7d5c1672f19c3ba1b048603e50c8fc8114c80c502
+    image: docker.io/triliumnext/trilium:v0.107.0
+    binds:
+      - /lzcapp/var/trilium:/home/node/trilium-data
+    environment:
+      TZ: Asia/Shanghai
