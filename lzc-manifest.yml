@@ -77,7 +77,7 @@ services:
   trilium:
     # Official stable image baseline. The adapter replaces this reference with the delivered LazyCat image.
     # upstream: docker.io/triliumnext/trilium:v0.107.0@sha256:ac72ce66f562a1d6d1baedf7d5c1672f19c3ba1b048603e50c8fc8114c80c502
-    image: docker.io/triliumnext/trilium:v0.107.0
+    image: registry.lazycat.cloud/peter/triliumnext/trilium:ea572af32b1bfd8c
     binds:
       - /lzcapp/var/trilium:/home/node/trilium-data
     environment:

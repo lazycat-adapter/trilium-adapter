@@ -1,5 +1,5 @@
 package: peter.lazycat.app.trilium
-version: 0.107.0
+version: 0.107.1
 name: Trilium Notes
 description: 本地优先的层级化笔记与个人知识库应用。
 homepage: https://triliumnotes.org
