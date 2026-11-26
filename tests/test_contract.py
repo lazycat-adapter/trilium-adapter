@@ -1,5 +1,7 @@
 from pathlib import Path
+import json
 import re
+import subprocess
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -45,7 +47,8 @@ def test_image_and_manifest_preserve_data_and_service_contract():
     assert manifest["services"]["trilium"]["binds"] == [
         "/lzcapp/var/trilium:/home/node/trilium-data"
     ]
-    assert manifest["services"]["trilium"]["image"] == "docker.io/triliumnext/trilium:v0.107.0"
+    assert manifest["services"]["trilium"]["image"].startswith("registry.lazycat.cloud/")
+    assert "docker.io/triliumnext/trilium:v0.107.0" in (ROOT / "lzc-manifest.yml").read_text()
 
 
 def test_file_picker_injection_is_packaged():
@@ -68,3 +71,89 @@ def test_icon_is_store_ready():
     image = Image.open(ROOT / "icon.png")
     assert image.size == (512, 512)
     assert image.format == "PNG"
+
+
+def test_passwordless_login_contract_and_state_transitions():
+    package = load("package.yml")
+    usage = "\n".join([
+        package["locales"]["zh-CN"]["usage"],
+        package["locales"]["en-US"]["usage"],
+    ]).lower()
+    assert "123456" in usage
+    assert "单用户" in usage
+    assert "single-user" in usage
+
+    manifest = load("lzc-manifest.yml")
+    injects = manifest["application"]["injects"]
+    by_id = {item["id"]: item for item in injects}
+
+    capture = by_id["trilium-capture-password"]
+    commit = by_id["trilium-commit-password"]
+    assert capture["on"] == "request"
+    assert commit["on"] == "response"
+    assert {"/set-password", "/login", "/api/password/change"}.issubset(set(capture["when"]))
+    assert {"/set-password", "/login", "/api/password/change"}.issubset(set(commit["when"]))
+
+    for inject_id, selector in (
+        ("trilium-setup-password1", 'input[name="password1"]'),
+        ("trilium-setup-password2", 'input[name="password2"]'),
+        ("trilium-login-autofill", 'input[name="password"]'),
+    ):
+        inject = by_id[inject_id]
+        assert inject["on"] == "browser"
+        script = inject["do"][0]
+        assert script["src"] == "builtin://simple-inject-password"
+        params = script["params"]
+        assert params["password"] == {"$persist": "trilium.password", "default": "123456"}
+        assert params["passwordSelector"] == selector
+        assert params["autoSubmit"] is (inject_id != "trilium-setup-password1")
+
+    request_script = capture["do"]
+    response_script = commit["do"]
+    assert isinstance(request_script, str)
+    assert isinstance(response_script, str)
+    node_program = r'''
+const assert = require("node:assert/strict");
+const scripts = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
+const capture = new Function("ctx", scripts.request);
+const commit = new Function("ctx", scripts.response);
+const flow = new Map();
+const persist = new Map();
+const form = (values) => Object.fromEntries(Object.entries(values).map(([key, value]) => [key, [value]]));
+const ctx = {
+  flow,
+  persist,
+  request: { path: "/set-password", method: "POST" },
+  body: { getForm: () => form({ password1: "123456", password2: "123456" }), getJSON: () => ({}) },
+  status: 302,
+  headers: { get: () => "" },
+};
+capture(ctx); commit(ctx);
+assert.equal(persist.get("trilium.password"), "123456");
+
+ctx.request.path = "/login";
+ctx.body.getForm = () => form({ password: "wrong" });
+ctx.status = 401;
+capture(ctx); commit(ctx);
+assert.equal(persist.get("trilium.password"), "123456");
+
+ctx.status = 302;
+capture(ctx); commit(ctx);
+assert.equal(persist.get("trilium.password"), "wrong");
+
+ctx.request.path = "/api/password/change";
+ctx.body.getJSON = () => ({ new_password: "new-secret" });
+ctx.status = 400;
+capture(ctx); commit(ctx);
+assert.equal(persist.get("trilium.password"), "wrong");
+
+ctx.status = 200;
+capture(ctx); commit(ctx);
+assert.equal(persist.get("trilium.password"), "new-secret");
+'''
+    subprocess.run(
+        ["node", "-e", node_program],
+        input=json.dumps({"request": request_script, "response": response_script}),
+        text=True,
+        check=True,
+    )

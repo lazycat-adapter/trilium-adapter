@@ -9,6 +9,70 @@ application:
   routes:
     - /=http://trilium:8080
   injects:
+    # request：只暂存本次设置、登录或改密请求中的候选密码。
+    - id: trilium-capture-password
+      "on": request
+      auth_required: true
+      when:
+        - /set-password
+        - /login
+        - /api/password/change
+      do: |
+        const path = String(ctx.request.path || "");
+        const method = String(ctx.request.method || "").toUpperCase();
+        if (method !== "POST") return;
+
+        let pendingPassword = "";
+        if (path === "/set-password" || path === "/login") {
+          let form = null;
+          try {
+            form = ctx.body.getForm();
+          } catch {
+            form = null;
+          }
+          if (!form || typeof form !== "object") return;
+
+          const first = (name) => {
+            const values = form[name];
+            return Array.isArray(values) && typeof values[0] === "string" ? values[0] : "";
+          };
+          if (path === "/set-password") {
+            const password1 = first("password1");
+            const password2 = first("password2");
+            if (!password1 || password1 !== password2) return;
+            pendingPassword = password1;
+          } else {
+            pendingPassword = first("password");
+          }
+        } else {
+          let payload = null;
+          try {
+            payload = ctx.body.getJSON();
+          } catch {
+            payload = null;
+          }
+          if (!payload || typeof payload !== "object") return;
+          pendingPassword = typeof payload.new_password === "string" ? payload.new_password : "";
+        }
+
+        if (pendingPassword) {
+          ctx.flow.set("trilium_pending_password", pendingPassword);
+        }
+    # response：只有 Trilium 接受请求后才更新当前微服用户的密码。
+    - id: trilium-commit-password
+      "on": response
+      auth_required: true
+      when:
+        - /set-password
+        - /login
+        - /api/password/change
+      do: |
+        const status = Number(ctx.status || 0);
+        if (status < 200 || status >= 400) return;
+        const password = ctx.flow.get("trilium_pending_password");
+        if (typeof password === "string" && password.length > 0) {
+          ctx.persist.set("trilium.password", password);
+        }
     - id: lazycat-health
       "on": request
       when:
@@ -70,6 +134,65 @@ application:
               fileSystemAccess: true
               fileInput: true
               downloadAnchor: true
+    # Trilium 是单用户应用：首次设置页有两个密码框，登录页只有一个密码框。
+    - id: trilium-setup-password1
+      "on": browser
+      auth_required: true
+      when:
+        - /
+        - /set-password
+      do:
+        - src: builtin://simple-inject-password
+          params:
+            password:
+              $persist: trilium.password
+              default: "123456"
+            allowPasswordOnly: true
+            passwordSelector: 'input[name="password1"]'
+            formSelector: 'form[action="set-password"]'
+            autoSubmit: false
+            retryCount: 10
+            retryIntervalMs: 300
+    - id: trilium-setup-password2
+      "on": browser
+      auth_required: true
+      when:
+        - /
+        - /set-password
+      do:
+        - src: builtin://simple-inject-password
+          params:
+            password:
+              $persist: trilium.password
+              default: "123456"
+            allowPasswordOnly: true
+            passwordSelector: 'input[name="password2"]'
+            formSelector: 'form[action="set-password"]'
+            submitSelector: 'button[type="submit"]'
+            autoSubmit: true
+            submitMode: requestSubmit
+            retryCount: 10
+            retryIntervalMs: 300
+    - id: trilium-login-autofill
+      "on": browser
+      auth_required: true
+      when:
+        - /
+        - /login
+      do:
+        - src: builtin://simple-inject-password
+          params:
+            password:
+              $persist: trilium.password
+              default: "123456"
+            allowPasswordOnly: true
+            passwordSelector: 'input[name="password"]'
+            formSelector: "form"
+            submitSelector: 'button[type="submit"]'
+            autoSubmit: true
+            submitMode: requestSubmit
+            retryCount: 10
+            retryIntervalMs: 300
   health_check:
     test_url: http://trilium:8080/
     start_period: 180s
