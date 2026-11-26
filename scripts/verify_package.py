@@ -13,7 +13,11 @@ def main():
     config = load("lazycat-action.yml")
     manifest = load("lzc-manifest.yml")
     assert package["package"] == "peter.lazycat.app.trilium"
-    assert package["version"] == "0.107.0"
+    # The shared action increments the app patch version after packaging
+    # (0.107.0 -> 0.107.1). Keep this contract valid for the generated
+    # checkout instead of pinning it to the initial upstream baseline.
+    package_version = tuple(int(part) for part in package["version"].split("."))
+    assert package_version >= (0, 107, 0)
     assert {"android", "ios"}.issubset(set(package["unsupported_platforms"]))
     assert config["source"]["url"] == "https://github.com/TriliumNext/Trilium.git"
     assert config["source"]["select"]["strategy"] == "semver-tag"

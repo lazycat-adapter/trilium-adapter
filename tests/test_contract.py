@@ -12,7 +12,10 @@ def load(name):
 def test_package_contract():
     package = load("package.yml")
     assert package["package"] == "peter.lazycat.app.trilium"
-    assert package["version"] == "0.107.0"
+    # The shared action may persist a patch increment after a successful
+    # submission, so the generated checkout can be 0.107.1 or newer.
+    package_version = tuple(int(part) for part in package["version"].split("."))
+    assert package_version >= (0, 107, 0)
     assert package["homepage"] == "https://triliumnotes.org"
     assert {"android", "ios"}.issubset(set(package["unsupported_platforms"]))
     assert package["locales"]["zh-CN"]["name"] == "Trilium Notes"
