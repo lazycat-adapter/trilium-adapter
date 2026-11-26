@@ -2,13 +2,13 @@
 
 ## Intent
 
-Make the Trilium LazyCat adapter complete first-run setup and subsequent login with a documented default password while preserving Trilium's own password-change flow. Trilium is a single-user application, so the adapter must not invent a username field or claim that an `admin` account exists.
+Make the Trilium LazyCat adapter remember the password selected during first-run setup and use it for subsequent login while preserving Trilium's own password-change flow. Trilium is a single-user application, so the adapter must not invent a username field or claim that an `admin` account exists.
 
 ## Goals
 
-- Default password is `123456` and is shown in both Chinese and English usage text.
-- The first-run `password1`/`password2` form is filled and submitted automatically.
-- The normal `password` login form is filled and submitted automatically.
+- The first-run `password1`/`password2` form remains user-controlled.
+- After a successful first-run setup, the chosen password is persisted.
+- The normal `password` login form is filled and submitted automatically when a saved password exists.
 - Successful `/set-password`, `/login`, and `/api/password/change` requests update a per-user persisted password.
 - Existing `public_path` and file-picker request/browser injects remain unchanged.
 
@@ -20,7 +20,7 @@ Make the Trilium LazyCat adapter complete first-run setup and subsequent login w
 
 ## Approach
 
-Use LazyCat's built-in `simple-inject-password` browser inject three times: once for each first-run password field and once for the normal login field. Use request/response injects with `ctx.flow` and `ctx.persist` to remember only credentials accepted by Trilium. Form-encoded setup/login requests use `ctx.body.getForm`; JSON password changes use `ctx.body.getJSON`.
+Use LazyCat's built-in `simple-inject-password` browser inject only for the normal login field. Use request/response injects with `ctx.flow` and `ctx.persist` to remember only credentials accepted by Trilium. Form-encoded setup/login requests use `ctx.body.getForm`; JSON password changes use `ctx.body.getJSON`.
 
 ## Verification
 

@@ -1,5 +1,6 @@
 usage: |
-  首次打开请按 Trilium 向导创建管理员账户。
+  Trilium 是单用户应用，没有用户名字段；首次打开时请自行设置密码。
+  设置完成后会自动记录密码，之后自动填充并登录；密码可在设置中修改。
   笔记、附件、数据库、配置和索引持久保存在 /lzcapp/var/trilium。
 application:
   subdomain: trilium
@@ -134,45 +135,7 @@ application:
               fileSystemAccess: true
               fileInput: true
               downloadAnchor: true
-    # Trilium 是单用户应用：首次设置页有两个密码框，登录页只有一个密码框。
-    - id: trilium-setup-password1
-      "on": browser
-      auth_required: true
-      when:
-        - /
-        - /set-password
-      do:
-        - src: builtin://simple-inject-password
-          params:
-            password:
-              $persist: trilium.password
-              default: "123456"
-            allowPasswordOnly: true
-            passwordSelector: 'input[name="password1"]'
-            formSelector: 'form[action="set-password"]'
-            autoSubmit: false
-            retryCount: 10
-            retryIntervalMs: 300
-    - id: trilium-setup-password2
-      "on": browser
-      auth_required: true
-      when:
-        - /
-        - /set-password
-      do:
-        - src: builtin://simple-inject-password
-          params:
-            password:
-              $persist: trilium.password
-              default: "123456"
-            allowPasswordOnly: true
-            passwordSelector: 'input[name="password2"]'
-            formSelector: 'form[action="set-password"]'
-            submitSelector: 'button[type="submit"]'
-            autoSubmit: true
-            submitMode: requestSubmit
-            retryCount: 10
-            retryIntervalMs: 300
+    # Trilium 是单用户应用：首次设置页保留给用户填写，设置成功后才记录密码。
     - id: trilium-login-autofill
       "on": browser
       auth_required: true
@@ -184,7 +147,6 @@ application:
           params:
             password:
               $persist: trilium.password
-              default: "123456"
             allowPasswordOnly: true
             passwordSelector: 'input[name="password"]'
             formSelector: "form"

@@ -14,18 +14,17 @@ locales:
     name: Trilium Notes
     description: 本地优先的层级化笔记与个人知识库应用。
     usage: |
-      Trilium 是单用户应用，没有用户名字段；默认密码为 123456。
-      首次打开时自动设置该密码并完成登录。
-      登录后可在设置中修改密码，之后自动使用新密码登录。
+      Trilium 是单用户应用，没有用户名字段；首次打开时请自行设置密码。
+      设置完成后会自动记录密码，之后自动填充并登录；密码可在设置中修改。
       笔记、附件、数据库、配置和索引持久保存在 /lzcapp/var/trilium。
       应用支持中文界面、全文搜索、笔记同步、附件和导入导出。
   en-US:
     name: Trilium Notes
     description: A local-first hierarchical note-taking application and personal knowledge base.
     usage: |
-      Trilium is a single-user application with no username field; the default password is 123456.
-      The first launch sets this password and signs in automatically.
-      After changing the password in Settings, subsequent sign-ins use the new password automatically.
+      Trilium is a single-user application with no username field; set the password yourself on first launch.
+      After setup, the password is recorded and used to fill and submit later sign-ins automatically.
+      You can change the password in Settings; subsequent sign-ins use the new password.
       Notes, attachments, database, configuration and indexes persist under /lzcapp/var/trilium.
       The application supports Chinese UI, full-text search, synchronization, attachments, and import/export.
 permissions:

@@ -13,15 +13,15 @@
 ## Global Constraints
 
 - Trilium is single-user; do not describe or inject an `admin` username.
-- Default password is exactly `123456`.
+- The first user chooses the password during setup; there is no adapter default.
 - Persist only successful credentials, keyed by `trilium.password`.
 - Keep `public_path: /_lzc/health` and the existing file-picker bridge/browser injects.
 - Final runtime image must remain under `registry.lazycat.cloud`.
 
 ## Review Focus
 
-- First-run form has two password fields and must submit only after both are filled — covered by manifest selector assertions.
-- Login has a password-only field — covered by the login inject assertion.
+- First-run form has two password fields and remains user-controlled — covered by the absence of setup browser injects and the setup persistence smoke case.
+- Login has a password-only field and only runs when a persisted password exists — covered by the login inject assertion.
 - Failed login or password-change responses must not overwrite the saved password — covered by the Node smoke test.
 - JSON and form-encoded request bodies use different parsers — covered by endpoint-specific smoke inputs.
 - Existing file-picker/public-path injects must survive YAML edits — covered by the existing Trilium contract and LPK lint.
@@ -31,7 +31,7 @@
 **Files:**
 - Modify: `tests/test_contract.py`
 
-- [ ] **Step 1: Add assertions for single-user usage, default `123456`, endpoint coverage, and the three browser selectors.**
+- [ ] **Step 1: Add assertions for single-user usage, no default password, endpoint coverage, and the login browser selector.**
 - [ ] **Step 2: Add a Node smoke test that executes the request/response scripts for failed and successful setup/login/password-change responses.**
 - [ ] **Step 3: Run the focused test and confirm it fails against the current manifest.**
 
@@ -42,7 +42,7 @@
 - Modify: `package.yml`
 
 - [ ] **Step 1: Add request/response capture and commit injects for `/set-password`, `/login`, and `/api/password/change`.**
-- [ ] **Step 2: Add browser injects for `password1`, `password2`, and `password`, using `$persist: trilium.password`, default `123456`, and `requestSubmit` auto-submit.**
+- [ ] **Step 2: Add a browser inject for `password` using `$persist: trilium.password` and `requestSubmit` auto-submit; do not inject the first-run setup fields.**
 - [ ] **Step 3: Replace username-oriented usage text with the single-user/password-only wording in both locales.**
 - [ ] **Step 4: Run the focused contract and smoke tests and confirm they pass.**
 

@@ -79,9 +79,10 @@ def test_passwordless_login_contract_and_state_transitions():
         package["locales"]["zh-CN"]["usage"],
         package["locales"]["en-US"]["usage"],
     ]).lower()
-    assert "123456" in usage
     assert "单用户" in usage
     assert "single-user" in usage
+    assert "自行设置" in usage
+    assert "set the password yourself" in usage
 
     manifest = load("lzc-manifest.yml")
     injects = manifest["application"]["injects"]
@@ -94,19 +95,27 @@ def test_passwordless_login_contract_and_state_transitions():
     assert {"/set-password", "/login", "/api/password/change"}.issubset(set(capture["when"]))
     assert {"/set-password", "/login", "/api/password/change"}.issubset(set(commit["when"]))
 
-    for inject_id, selector in (
-        ("trilium-setup-password1", 'input[name="password1"]'),
-        ("trilium-setup-password2", 'input[name="password2"]'),
-        ("trilium-login-autofill", 'input[name="password"]'),
-    ):
+    login = by_id["trilium-login-autofill"]
+    assert login["on"] == "browser"
+    script = login["do"][0]
+    assert script["src"] == "builtin://simple-inject-password"
+    params = script["params"]
+    assert params["password"] == {"$persist": "trilium.password"}
+    assert params["passwordSelector"] == 'input[name="password"]'
+    assert params["autoSubmit"] is True
+    assert params["allowPasswordOnly"] is True
+    assert "trilium-setup-password1" not in by_id
+    assert "trilium-setup-password2" not in by_id
+
+    for inject_id, selector in (("trilium-login-autofill", 'input[name="password"]'),):
         inject = by_id[inject_id]
         assert inject["on"] == "browser"
         script = inject["do"][0]
         assert script["src"] == "builtin://simple-inject-password"
         params = script["params"]
-        assert params["password"] == {"$persist": "trilium.password", "default": "123456"}
+        assert params["password"] == {"$persist": "trilium.password"}
         assert params["passwordSelector"] == selector
-        assert params["autoSubmit"] is (inject_id != "trilium-setup-password1")
+        assert params["autoSubmit"] is True
 
     request_script = capture["do"]
     response_script = commit["do"]
@@ -124,18 +133,18 @@ const ctx = {
   flow,
   persist,
   request: { path: "/set-password", method: "POST" },
-  body: { getForm: () => form({ password1: "123456", password2: "123456" }), getJSON: () => ({}) },
+  body: { getForm: () => form({ password1: "first-secret", password2: "first-secret" }), getJSON: () => ({}) },
   status: 302,
   headers: { get: () => "" },
 };
 capture(ctx); commit(ctx);
-assert.equal(persist.get("trilium.password"), "123456");
+assert.equal(persist.get("trilium.password"), "first-secret");
 
 ctx.request.path = "/login";
 ctx.body.getForm = () => form({ password: "wrong" });
 ctx.status = 401;
 capture(ctx); commit(ctx);
-assert.equal(persist.get("trilium.password"), "123456");
+assert.equal(persist.get("trilium.password"), "first-secret");
 
 ctx.status = 302;
 capture(ctx); commit(ctx);
